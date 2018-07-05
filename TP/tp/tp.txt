@@ -1,0 +1,135 @@
+void setup()
+{
+  pinMode(2,OUTPUT);//INCORRECTO
+  pinMode(3,OUTPUT);//CORRECTO
+  pinMode(4,INPUT);//INICIO DE SECUENCIA
+  pinMode(5,INPUT);//CAMBIO DE MODO
+  pinMode(6,INPUT);//CONTRASEÑA
+  Serial.begin(9600);
+}
+int flag = 0,flagError = 0,flagGrabado = 0,i;
+int pulsAntes1=0,modo=0,boton=0,antes=0;
+int inicio_Secuencia=0,pulsAntes2=0;
+long golpes_Grabados[3],inicio_Grabar;
+long golpes_Comparados[3],inicio_Comparar;
+int contador = 0,secuencia;
+void loop()
+{
+  //------------ANTI-REBOTE-1---------------
+  int puls1 = digitalRead(4);
+  if(puls1 == 1 && pulsAntes1 == 0)
+  {
+    modo = 1 - modo;
+  }
+  pulsAntes1 = puls1;
+  
+  //------------ANTI-REBOTE-2---------------
+  int puls2 = digitalRead(5);
+  if(puls2 == 1 && pulsAntes2 == 0)
+  {
+    inicio_Secuencia = 1 - inicio_Secuencia;
+  }
+  pulsAntes2 = puls2;
+  
+  //------------Modos-----------------------
+  if(modo == 1)//USO NORMAL
+  {
+    if(inicio_Secuencia == 1 && flagGrabado == 1)
+    {//COMPARAR
+      Serial.println("Modo ingreso");
+      Serial.println("-----------");
+      contador = 0;
+      inicio_Comparar = millis();
+      while(contador < 3)
+      {
+        do{
+    		antes = boton;
+    		boton = digitalRead(6);
+  		}while(boton == antes);
+        
+        if(boton == 1)
+        {
+          golpes_Comparados[contador] = millis() - inicio_Comparar;
+          contador++;
+        }
+      }
+      
+      for(i=0;i<3;i++)
+      {
+        Serial.print("Comparar: ");
+        Serial.println(golpes_Comparados[i]);
+      }
+      Serial.println("-----------");
+      
+      secuencia = 0;
+      for(i=0;i<contador;i++)
+      {
+        int margen_Superior = golpes_Grabados[i] + 25;
+        int margen_Inferior = golpes_Grabados[i] - 25;
+        if(golpes_Comparados[i]<margen_Superior && golpes_Comparados[i]>margen_Inferior)
+        {
+          secuencia++;
+          flagError = 1;
+        }
+      }
+      
+      if(secuencia == contador)
+      {
+        digitalWrite(3,HIGH);
+        delay(500);
+        digitalWrite(3,LOW);
+      }
+      else if(secuencia < contador && flagError == 1)
+      {
+        digitalWrite(2,HIGH);
+        delay(500);
+        digitalWrite(2,LOW);
+      }
+      
+      flagError = 0;
+      inicio_Secuencia = 0;
+    }
+  }
+  else if(modo == 0)//GRABAR CONTRASEÑA
+  {
+    if(inicio_Secuencia == 1)
+    {//GRABAR
+      Serial.println("Modo grabar");
+      Serial.println("-----------");
+      contador = 0;
+      inicio_Grabar = millis();
+      while(contador < 3)
+      {
+        do{
+    		antes = boton;
+    		boton = digitalRead(6);
+  		}while(boton == antes);
+        
+        if(boton == 1)
+        {
+          golpes_Grabados[contador] = millis() - inicio_Grabar;
+          contador++;
+        }
+      }
+      inicio_Secuencia = 0;
+      flag = 1;
+      flagGrabado = 1;
+    }
+  }
+  
+  //------------Imprimir--------------------
+  if(flag==1)
+  {
+    for(i=0;i<3;i++)
+  	{
+      Serial.print("Time: ");
+  	  Serial.println(golpes_Grabados[i]);
+  	}
+    Serial.println("-----------");
+    flag = 0;
+  }
+  inicio_Secuencia = 0;
+}
+
+//USAR millis(); retorna milisegundos
+//pasados desde el inicio del programa
